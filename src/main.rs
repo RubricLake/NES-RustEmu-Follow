@@ -1,6 +1,6 @@
 mod cpu;
-use crate::cpu::*;
+// use crate::cpu::*;
 
 fn main() {
-    println!("Hello, World!");
+    println!("Hello, Emulator!");
 }
