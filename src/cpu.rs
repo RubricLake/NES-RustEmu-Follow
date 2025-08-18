@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+use crate::opcodes;
 
 // Flag Constants
 const FLAG_CARRY:            u8 = 0b0000_0001; // bit 0
@@ -168,20 +169,36 @@ fn update_zero_and_negative_flags(&mut self, result: u8) {
     }
 
     pub fn run(&mut self) {
-        loop {
-            let opcode = self.mem_read(self.program_counter);
-            self.program_counter += 1;
 
-            match opcode {
-                0xA9 => {
-                    let param = self.mem_read(self.program_counter);
-                    self.program_counter += 1;
-                    self.lda(param);
+        let opcode_map = &*opcodes::OPCODES_MAP;
+
+        loop {
+            let code = self.mem_read(self.program_counter);
+            self.program_counter += 1;
+            let program_counter_state = self.program_counter;
+            let opcode = opcode_map.get(&code).expect(&format!("Code {:x} not in map.", code)); 
+
+            match code {
+                /* LDA */
+                0xA9 | 0xA5 | 0xB5 | 0xAD | 0xBD | 0xB9 | 0xA1 | 0xB1 => {
+                    self.lda(&opcode.mode);
                 }
+                
+                /* STA */
+                0x85 | 0x95 | 0x8d | 0x9d | 0x99 | 0x81 | 0x91 => {
+                    self.sta(&opcode.mode);
+                }
+
                 0xAA => self.tax(),
                 0xE8 => self.inx(),
                 0x00 => return,
-                _ => todo!("Not Implemented: {:x}", opcode),
+                _ => todo!("{} ({:x}) with mode {:?} not implemented yet.", opcode.mnemonic, opcode.code, opcode.mode),
+            }
+
+            // Ensures PC moves proper amount forward
+            // Will not trigger during jump type opcodes.
+            if self.program_counter == program_counter_state {
+                self.program_counter += (opcode.len - 1) as u16;
             }
         }
     }
@@ -192,14 +209,22 @@ fn update_zero_and_negative_flags(&mut self, result: u8) {
 
 // Opcodes
 impl CPU {
-    fn lda(&mut self, value: u8) {
-       self.register_a = value;
-       self.update_zero_and_negative_flags(self.register_a);
+    fn lda(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+        let value = self.mem_read(addr);
+      
+        self.register_a = value;
+        self.update_zero_and_negative_flags(self.register_a);
    }
- 
+   
+   fn sta (&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+        self.mem_write(addr, self.register_a);
+   }
+
     fn tax(&mut self) {
-       self.register_x = self.register_a;
-       self.update_zero_and_negative_flags(self.register_x);
+        self.register_x = self.register_a;
+        self.update_zero_and_negative_flags(self.register_x);
    }
 
    fn inx(&mut self) {
@@ -321,5 +346,13 @@ mod test {
 
        assert_eq!(cpu.register_x, 0xc1)
    }
+
+   #[test]
+   fn test_sta_stores_accumulator() {
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xa9, 0x10, 0x85, 0x69, 0x00]);
+        assert_eq!(cpu.mem_read(0x69), 0x10);
+   }
+   
 
 }
