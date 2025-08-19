@@ -21,13 +21,32 @@ impl OpCode {
     }
 }
 // Opcode Table
+// Copy: OpCode::new(0x00, "MNE", 0, 0, AddressingMode::),
 lazy_static! {
     pub static ref CPU_OPS_CODES: Vec<OpCode> = vec![
         OpCode::new(0x00, "BRK", 1, 7, AddressingMode::NoneAddressing),
         OpCode::new(0xaa, "TAX", 1, 2, AddressingMode::NoneAddressing),
         OpCode::new(0xe8, "INX", 1, 2, AddressingMode::NoneAddressing),
+        
+        // Arithmetic Shift Left (TODO)
+        OpCode::new(0x00, "ASL", 0, 0, AddressingMode::NoneAddressing),
+        OpCode::new(0x00, "ASL", 0, 0, AddressingMode::ZeroPage),
+        OpCode::new(0x00, "ASL", 0, 0, AddressingMode::ZeroPage_X),
+        OpCode::new(0x00, "ASL", 0, 0, AddressingMode::Absolute),
+        OpCode::new(0x00, "ASL", 0, 0, AddressingMode::Absolute_X),
+
+        // Logical AND
+        OpCode::new(0x29, "AND", 2, 2, AddressingMode::Immediate),
+        OpCode::new(0x25, "AND", 2, 3, AddressingMode::ZeroPage),
+        OpCode::new(0x35, "AND", 2, 4, AddressingMode::ZeroPage_X),
+        OpCode::new(0x2D, "AND", 3, 4, AddressingMode::Absolute),
+        OpCode::new(0x3D, "AND", 3, 4, AddressingMode::Absolute_X), // + 1 if page crossed
+        OpCode::new(0x39, "AND", 3, 4, AddressingMode::Absolute_Y), // + 1 if page crossed
+        OpCode::new(0x21, "AND", 2, 6, AddressingMode::Indirect_X),
+        OpCode::new(0x31, "AND", 2, 5, AddressingMode::Indirect_Y), // + 1 if page crossed
 
 
+        // Load Accumulator
         OpCode::new(0xA9, "LDA", 2, 2, AddressingMode::Immediate),
         OpCode::new(0xA5, "LDA", 2, 3, AddressingMode::ZeroPage),
         OpCode::new(0xB5, "LDA", 2, 4, AddressingMode::ZeroPage_X),
