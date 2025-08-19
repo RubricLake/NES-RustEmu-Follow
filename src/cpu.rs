@@ -26,6 +26,37 @@ pub enum AddressingMode {
     NoneAddressing,
 }
 
+// For CPU, Bus, and anything that needs to act as memory
+trait Mem {
+    fn mem_read_u16(&mut self, address: u16) -> u16{
+        let lo = self.mem_read(address) as u16;
+        let hi = self.mem_read(address + 1) as u16;
+        (hi << 8) | (lo as u16)
+    }
+
+    fn mem_write_u16(&mut self, address: u16, data: u16) {
+        let hi = (data >> 8) as u8;
+        let lo = (data & 0xff) as u8;
+
+        self.mem_write(address, lo);
+        self.mem_write(address + 1, hi);
+    }
+
+    fn mem_read(&self, address: u16) -> u8;
+
+    fn mem_write(&mut self, address: u16, data: u8);
+}
+
+impl Mem for CPU {
+    fn mem_read(&self, address: u16) -> u8 {
+        self.memory[address as usize]
+    }
+
+    fn mem_write(&mut self, address: u16, data: u8) {
+        self.memory[address as usize] = data;
+    }
+}
+
 pub struct CPU {
     pub register_a: u8,
     pub register_x: u8,
@@ -102,28 +133,6 @@ impl CPU {
         }
     }
 
-    fn mem_read(&self, address: u16) -> u8 {
-        self.memory[address as usize]
-    }
-
-    fn mem_write(&mut self, address: u16, data: u8) {
-        self.memory[address as usize] = data;
-    }
-
-    fn mem_read_u16(&mut self, address: u16) -> u16{
-        let lo = self.mem_read(address) as u16;
-        let hi = self.mem_read(address + 1) as u16;
-        (hi << 8) | (lo as u16)
-    }
-
-    fn mem_write_u16(&mut self, address: u16, data: u16) {
-        let hi = (data >> 8) as u8;
-        let lo = (data & 0xff) as u8;
-
-        self.mem_write(address, lo);
-        self.mem_write(address + 1, hi);
-    }
-    
     pub fn reset(&mut self) {
         self.register_a = 0;
         self.register_x = 0;
