@@ -27,13 +27,6 @@ lazy_static! {
         OpCode::new(0x00, "BRK", 1, 7, AddressingMode::NoneAddressing),
         OpCode::new(0xaa, "TAX", 1, 2, AddressingMode::NoneAddressing),
         OpCode::new(0xe8, "INX", 1, 2, AddressingMode::NoneAddressing),
-        
-        // Arithmetic Shift Left (TODO)
-        OpCode::new(0x00, "ASL", 0, 0, AddressingMode::NoneAddressing),
-        OpCode::new(0x00, "ASL", 0, 0, AddressingMode::ZeroPage),
-        OpCode::new(0x00, "ASL", 0, 0, AddressingMode::ZeroPage_X),
-        OpCode::new(0x00, "ASL", 0, 0, AddressingMode::Absolute),
-        OpCode::new(0x00, "ASL", 0, 0, AddressingMode::Absolute_X),
 
         // Logical AND
         OpCode::new(0x29, "AND", 2, 2, AddressingMode::Immediate),
@@ -45,6 +38,19 @@ lazy_static! {
         OpCode::new(0x21, "AND", 2, 6, AddressingMode::Indirect_X),
         OpCode::new(0x31, "AND", 2, 5, AddressingMode::Indirect_Y), // + 1 if page crossed
 
+        // Arithmetic Shift Left
+        OpCode::new(0x0A, "ASL", 1, 2, AddressingMode::NoneAddressing),
+        OpCode::new(0x06, "ASL", 2, 5, AddressingMode::ZeroPage),
+        OpCode::new(0x16, "ASL", 2, 6, AddressingMode::ZeroPage_X),
+        OpCode::new(0x0E, "ASL", 3, 6, AddressingMode::Absolute),
+        OpCode::new(0x1E, "ASL", 3, 7, AddressingMode::Absolute_X),
+
+        // Branch if Carry Clear
+        OpCode::new(0x90, "BCC", 2, 2, AddressingMode::NoneAddressing), // + 1 if branch succeeeds.
+                                                                        // + 2 if to a new page.
+        // Branch if Carry Set
+        OpCode::new(0xB0, "BCS", 2, 2, AddressingMode::NoneAddressing), // + 1 if branch succeeeds.
+                                                                        // + 2 if to a new page.
 
         // Load Accumulator
         OpCode::new(0xA9, "LDA", 2, 2, AddressingMode::Immediate),
