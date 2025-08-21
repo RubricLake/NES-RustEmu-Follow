@@ -209,18 +209,6 @@ impl CPU {
         self.program_counter = value;
     }
 
-    fn branch(&mut self, condition: bool) {
-        if condition {
-            let jump = self.mem_read(self.program_counter) as i8;
-            let jump_addr = self
-                .program_counter
-                .wrapping_add(1)
-                .wrapping_add(jump as u16);
-
-            self.program_counter = jump_addr;
-        }
-    }
-
     pub fn run(&mut self) {
         let opcode_map = &*opcodes::OPCODES_MAP;
 
@@ -254,6 +242,32 @@ impl CPU {
                 0xB0 => {
                     self.branch(self.check_flag(FLAG_CARRY));
                 }
+
+                /* BEQ */
+                0xF0 => {
+                    self.branch(self.check_flag(FLAG_ZERO));
+                }
+
+                /* BMI */
+                0x30 => {
+                    self.branch(self.check_flag(FLAG_NEGATIVE));
+                }
+
+                /* BNE */
+                0xD0 => {
+                    self.branch(!self.check_flag(FLAG_ZERO));
+                }
+
+                /* BPL */
+                0x10 => {
+                    self.branch(!self.check_flag(FLAG_NEGATIVE));
+                }
+
+                /* BVC */
+                0x50 => self.branch(!self.check_flag(FLAG_OVERFLOW)),
+
+                /* BVS */
+                0x70 => self.branch(self.check_flag(FLAG_OVERFLOW)),
 
                 /* LDA */
                 0xA9 | 0xA5 | 0xB5 | 0xAD | 0xBD | 0xB9 | 0xA1 | 0xB1 => {
@@ -316,6 +330,18 @@ impl CPU {
         value = value << 1;
         self.mem_write(addr, value);
         self.update_negative_flag(value);
+    }
+
+    fn branch(&mut self, condition: bool) {
+        if condition {
+            let jump = self.mem_read(self.program_counter) as i8;
+            let jump_addr = self
+                .program_counter
+                .wrapping_add(1)
+                .wrapping_add(jump as u16);
+
+            self.program_counter = jump_addr;
+        }
     }
 
     fn lda(&mut self, mode: &AddressingMode) {
@@ -495,10 +521,12 @@ mod test {
     #[test]
     #[rustfmt::skip]
     fn test_bcc_works() {
+        // Doesn't Jump
         let mut cpu = CPU::new();
         cpu.load_and_run(vec![0xA9, 0b1000_0000, 0x0A, 0x90, 1, 0x00, 0xA9, 0x10, 0x00]);
         assert_eq!(cpu.register_a, 0x00);
 
+        // Jumps
         let mut cpu = CPU::new();
         cpu.load_and_run(vec![0xA9, 0b0100_0000, 0x0A, 0x90, 1, 0x00, 0xA9, 0x10, 0x00]);
         assert_eq!(cpu.register_a, 0x10);
@@ -507,12 +535,104 @@ mod test {
     #[test]
     #[rustfmt::skip]
     fn test_bcs_works() {
+        // Doesn't Jump
         let mut cpu = CPU::new();
         cpu.load_and_run(vec![0xA9, 0b1000_0000, 0x0A, 0xB0, 1, 0x00, 0xA9, 0x10, 0x00]);
         assert_eq!(cpu.register_a, 0x10);
 
+        // Jumps
         let mut cpu = CPU::new();
         cpu.load_and_run(vec![0xA9, 0b0100_0000, 0x0A, 0xB0, 1, 0x00, 0xA9, 0x10, 0x00]);
         assert_eq!(cpu.register_a, 0b1000_0000);
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_beq_works() {
+        // Doesn't Jump
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xA9, 0x11, 0xF0, 1, 0x00, 0xA9, 0x22, 0x00]);
+        assert_eq!(cpu.register_a, 0x11);
+        
+        // Jumps
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xA9, 0x00, 0xF0, 1, 0x00, 0xA9, 0x22, 0x00]);
+        assert_eq!(cpu.register_a, 0x22);
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_bmi_works() {
+        // Doesn't Jump
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xA9, 0x01, 0x30, 1, 0x00, 0xA9, 0x02, 0x00]);
+        assert_eq!(cpu.register_a, 0x01);
+        
+        // Jumps
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xA9, 0b1000_0001, 0x30, 1, 0x00, 0xA9, 0x02, 0x00]);
+        assert_eq!(cpu.register_a, 0x02);
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_bne_works() {
+        // Doesn't Jump
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xA9, 0x00, 0xD0, 1, 0x00, 0xA9, 0x22, 0x00]);
+        assert_eq!(cpu.register_a, 0x00);
+        
+        // Jumps
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xA9, 0x11, 0xD0, 1, 0x00, 0xA9, 0x22, 0x00]);
+        assert_eq!(cpu.register_a, 0x22);
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_bpl_works() {
+        // Doesn't Jump
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xA9, 0b1000_0001, 0x10, 1, 0x00, 0xA9, 0x02, 0x00]);
+        assert_eq!(cpu.register_a, 0b1000_0001);
+
+        // Jumps
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xA9, 0x01, 0x10, 1, 0x00, 0xA9, 0x02, 0x00]);
+        assert_eq!(cpu.register_a, 0x02);
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_bvc_works() {
+        // Doesn't Jump
+        let mut cpu = CPU::new();
+        cpu.load_and_reset(vec![0xA9, 0x11, 0x50, 1, 0x00, 0xA9, 0x22, 0x00]);
+        cpu.run();
+        assert_eq!(cpu.register_a, 0x22);
+
+        // Jumps
+        let mut cpu = CPU::new();
+        cpu.load_and_reset(vec![0xA9, 0x11, 0x50, 1, 0x00, 0xA9, 0x22, 0x00]);
+        cpu.set_flag(FLAG_OVERFLOW);
+        cpu.run();
+        assert_eq!(cpu.register_a, 0x11);
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_bvs_works() {
+        // Doesn't Jump
+        let mut cpu = CPU::new();
+        cpu.load_and_reset(vec![0xA9, 0x11, 0x70, 1, 0x00, 0xA9, 0x22, 0x00]);
+        cpu.set_flag(FLAG_OVERFLOW);
+        cpu.run();
+        assert_eq!(cpu.register_a, 0x22);
+        
+        // Jumps
+        let mut cpu = CPU::new();
+        cpu.load_and_reset(vec![0xA9, 0x11, 0x70, 1, 0x00, 0xA9, 0x22, 0x00]);
+        cpu.run();
+        assert_eq!(cpu.register_a, 0x11);
     }
 }

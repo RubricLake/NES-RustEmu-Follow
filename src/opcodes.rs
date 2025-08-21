@@ -45,12 +45,18 @@ lazy_static! {
         OpCode::new(0x0E, "ASL", 3, 6, AddressingMode::Absolute),
         OpCode::new(0x1E, "ASL", 3, 7, AddressingMode::Absolute_X),
 
-        // Branch if Carry Clear
-        OpCode::new(0x90, "BCC", 2, 2, AddressingMode::NoneAddressing), // + 1 if branch succeeeds.
-                                                                        // + 2 if to a new page.
-        // Branch if Carry Set
-        OpCode::new(0xB0, "BCS", 2, 2, AddressingMode::NoneAddressing), // + 1 if branch succeeeds.
-                                                                        // + 2 if to a new page.
+        /*
+        Branching
+        len +1 if branch succeeds (+2 if to a new page)
+        */
+        OpCode::new(0x90, "BCC", 2, 2, AddressingMode::NoneAddressing), // Branch if Carry Clear
+        OpCode::new(0xB0, "BCS", 2, 2, AddressingMode::NoneAddressing), // Branch if Carry Set
+        OpCode::new(0xF0, "BEQ", 2, 2, AddressingMode::NoneAddressing), // Branch if Equal
+        OpCode::new(0x30, "BMI", 2, 2, AddressingMode::NoneAddressing), // Branch if Minus
+        OpCode::new(0xD0, "BNE", 2, 2, AddressingMode::NoneAddressing), // Branch if Not Equal
+        OpCode::new(0x10, "BPL", 2, 2, AddressingMode::NoneAddressing), // Branch if Positive
+        OpCode::new(0x50, "BVC", 2, 2, AddressingMode::NoneAddressing), // Branch if Overflow Clear
+        OpCode::new(0x70, "BVS", 2, 2, AddressingMode::NoneAddressing), // If Overflow set
 
         // Load Accumulator
         OpCode::new(0xA9, "LDA", 2, 2, AddressingMode::Immediate),
