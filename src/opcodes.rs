@@ -20,8 +20,22 @@ impl OpCode {
         }
     }
 }
+/* Copy and Paste
+OpCode::new(0x00, "MNE", 0, 0, AddressingMode::ZeroPage),
+OpCode::new(0x00, "MNE", 0, 0, AddressingMode::ZeroPage_X),
+OpCode::new(0x00, "MNE", 0, 0, AddressingMode::ZeroPage_Y),
+OpCode::new(0x00, "MNE", 0, 0, AddressingMode::Absolute),
+OpCode::new(0x00, "MNE", 0, 0, AddressingMode::Absolute_X),
+OpCode::new(0x00, "MNE", 0, 0, AddressingMode::Absolute_Y),
+OpCode::new(0x00, "MNE", 0, 0, AddressingMode::Indirect_X),
+OpCode::new(0x00, "MNE", 0, 0, AddressingMode::Indirect_Y),
+OpCode::new(0x00, "MNE", 0, 0, AddressingMode::NoneAddressing),
+
+// +1 if page crossed
+
+*/
+
 // Opcode Table
-// Copy: OpCode::new(0x00, "MNE", 0, 0, AddressingMode::),
 lazy_static! {
     pub static ref CPU_OPS_CODES: Vec<OpCode> = vec![
         OpCode::new(0x00, "BRK", 1, 7, AddressingMode::NoneAddressing),
@@ -57,6 +71,30 @@ lazy_static! {
         OpCode::new(0x10, "BPL", 2, 2, AddressingMode::NoneAddressing), // Branch if Positive
         OpCode::new(0x50, "BVC", 2, 2, AddressingMode::NoneAddressing), // Branch if Overflow Clear
         OpCode::new(0x70, "BVS", 2, 2, AddressingMode::NoneAddressing), // If Overflow set
+
+        /* Clear Flags */
+        OpCode::new(0x18, "CLC", 1, 2, AddressingMode::NoneAddressing), // Clear Carry
+        OpCode::new(0xD8, "CLD", 1, 2, AddressingMode::NoneAddressing), // Clear Decimal Mode
+        OpCode::new(0x58, "CLI", 1, 2, AddressingMode::NoneAddressing), // Clear Interrupt Disable
+        OpCode::new(0xB8, "CLV", 1, 2, AddressingMode::NoneAddressing), // Clear Overflow
+
+        /* Comparisons */
+        OpCode::new(0xC9, "CMP", 2, 2, AddressingMode::Immediate),
+        OpCode::new(0xC5, "CMP", 2, 3, AddressingMode::ZeroPage),
+        OpCode::new(0xD5, "CMP", 2, 4, AddressingMode::ZeroPage_X),
+        OpCode::new(0xCD, "CMP", 3, 4, AddressingMode::Absolute),
+        OpCode::new(0xDD, "CMP", 3, 4, AddressingMode::Absolute_X), // +1 if page crossed
+        OpCode::new(0xD9, "CMP", 3, 4, AddressingMode::Absolute_Y), // +1 if page crossed
+        OpCode::new(0xC1, "CMP", 2, 6, AddressingMode::Indirect_X),
+        OpCode::new(0xD1, "CMP", 2, 5, AddressingMode::Indirect_Y), // +1 if page crossed
+
+        OpCode::new(0xE0, "CPX", 2, 2, AddressingMode::Immediate),
+        OpCode::new(0xE4, "CPX", 2, 3, AddressingMode::ZeroPage),
+        OpCode::new(0xEC, "CPX", 3, 4, AddressingMode::Absolute),
+
+        OpCode::new(0xC0, "CPY", 2, 2, AddressingMode::Immediate),
+        OpCode::new(0xC4, "CPY", 2, 3, AddressingMode::ZeroPage),
+        OpCode::new(0xCC, "CPY", 3, 4, AddressingMode::Absolute),
 
         // Load Accumulator
         OpCode::new(0xA9, "LDA", 2, 2, AddressingMode::Immediate),

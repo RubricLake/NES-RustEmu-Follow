@@ -179,9 +179,10 @@ impl CPU {
         self.update_negative_flag(result);
     }
 
-    // Returns true if the given flag is set.
+    // Returns true if the given flag(s) are all set.
+    // Combine flags with pipes to test multiple at once
     fn check_flag(&self, flag: u8) -> bool {
-        return self.status & flag != 0;
+        return self.status & flag == flag;
     }
 
     fn set_flag(&mut self, flag: u8) {
@@ -269,6 +270,25 @@ impl CPU {
                 /* BVS */
                 0x70 => self.branch(self.check_flag(FLAG_OVERFLOW)),
 
+                /* Clear Flags */
+                0x18 => self.clear_flag(FLAG_CARRY),
+                0xD8 => self.clear_flag(FLAG_DECIMAL_MODE),
+                0x58 => self.clear_flag(FLAG_INTERRUPT_DISABLE),
+                0xB8 => self.clear_flag(FLAG_OVERFLOW),
+
+                /* Comparisons */
+                0xC9 | 0xC5 | 0xD5 | 0xCD | 0xDD | 0xD9 | 0xC1 | 0xD1 => {
+                    self.compare(&opcode.mode, self.register_a); // CMP
+                }
+
+                0xE0 | 0xE4 | 0xEC => {
+                    self.compare(&opcode.mode, self.register_x); // CPX
+                }
+
+                0xC0 | 0xC4 | 0xCC => {
+                    self.compare(&opcode.mode, self.register_y); // CPY
+                }
+
                 /* LDA */
                 0xA9 | 0xA5 | 0xB5 | 0xAD | 0xBD | 0xB9 | 0xA1 | 0xB1 => {
                     self.lda(&opcode.mode);
@@ -344,6 +364,19 @@ impl CPU {
         }
     }
 
+    fn compare(&mut self, mode: &AddressingMode, compare_val: u8) {
+        let addr = self.get_operand_address(mode);
+        let data = self.mem_read(addr);
+
+        if compare_val >= data {
+            self.set_flag(FLAG_CARRY);
+        } else {
+            self.clear_flag(FLAG_CARRY);
+        }
+
+        self.update_zero_and_negative_flags(compare_val.wrapping_sub(data));
+    }
+
     fn lda(&mut self, mode: &AddressingMode) {
         let addr = self.get_operand_address(mode);
         let value = self.mem_read(addr);
@@ -400,7 +433,6 @@ mod test {
         cpu.load_and_run(vec![0xa9, 0b1000_0001, 0x00]);
 
         assert!(cpu.check_flag(FLAG_NEGATIVE));
-        assert!(cpu.check_flag(!FLAG_ZERO));
     }
 
     #[test]
@@ -635,4 +667,37 @@ mod test {
         cpu.run();
         assert_eq!(cpu.register_a, 0x11);
     }
+
+    #[test]
+    fn test_flag_clears() {
+        let mut cpu = CPU::new();
+        let test_flags = FLAG_CARRY | FLAG_DECIMAL_MODE | FLAG_INTERRUPT_DISABLE | FLAG_OVERFLOW;
+        cpu.load_and_reset(vec![0x18, 0xD8, 0x58, 0xB8, 0x00]);
+
+        cpu.set_flag(test_flags); // Turn on all flags
+        assert!(cpu.check_flag(test_flags));
+        cpu.run(); // Should clear all flags
+
+        assert!(!cpu.check_flag(test_flags));
+    }
+
+    #[test]
+    fn test_cmp_works() {
+        let mut cpu = CPU::new();
+        let reg_a_val = 10;
+        let carry_setter: u8 = 5;
+        let zero_setter: u8 = 10;
+        let neg_setter: u8 = 15;
+
+        cpu.load_and_run(vec![0xA9, reg_a_val, 0xC9, carry_setter, 0x00]);
+        assert!(cpu.check_flag(FLAG_CARRY));
+
+        cpu.load_and_run(vec![0xA9, reg_a_val, 0xC9, zero_setter, 0x00]);
+        assert!(cpu.check_flag(FLAG_ZERO));
+
+        cpu.load_and_run(vec![0xA9, reg_a_val, 0xC9, neg_setter, 0x00]);
+        assert!(cpu.check_flag(FLAG_NEGATIVE));
+    }
+
+    // TODO: cpx, cpy test, maybe...
 }
