@@ -21,15 +21,16 @@ impl OpCode {
     }
 }
 /* Copy and Paste
-OpCode::new(0x00, "MNE", 0, 0, AddressingMode::ZeroPage),
-OpCode::new(0x00, "MNE", 0, 0, AddressingMode::ZeroPage_X),
-OpCode::new(0x00, "MNE", 0, 0, AddressingMode::ZeroPage_Y),
-OpCode::new(0x00, "MNE", 0, 0, AddressingMode::Absolute),
-OpCode::new(0x00, "MNE", 0, 0, AddressingMode::Absolute_X),
-OpCode::new(0x00, "MNE", 0, 0, AddressingMode::Absolute_Y),
-OpCode::new(0x00, "MNE", 0, 0, AddressingMode::Indirect_X),
-OpCode::new(0x00, "MNE", 0, 0, AddressingMode::Indirect_Y),
-OpCode::new(0x00, "MNE", 0, 0, AddressingMode::NoneAddressing),
+        OpCode::new(0x00, "MNE", 0, 0, AddressingMode::Immediate),
+        OpCode::new(0x00, "MNE", 0, 0, AddressingMode::ZeroPage),
+        OpCode::new(0x00, "MNE", 0, 0, AddressingMode::ZeroPage_X),
+        OpCode::new(0x00, "MNE", 0, 0, AddressingMode::ZeroPage_Y),
+        OpCode::new(0x00, "MNE", 0, 0, AddressingMode::Absolute),
+        OpCode::new(0x00, "MNE", 0, 0, AddressingMode::Absolute_X),
+        OpCode::new(0x00, "MNE", 0, 0, AddressingMode::Absolute_Y),
+        OpCode::new(0x00, "MNE", 0, 0, AddressingMode::Indirect_X),
+        OpCode::new(0x00, "MNE", 0, 0, AddressingMode::Indirect_Y),
+        OpCode::new(0x00, "MNE", 0, 0, AddressingMode::NoneAddressing),
 
 // +1 if page crossed
 
@@ -41,6 +42,16 @@ lazy_static! {
         OpCode::new(0x00, "BRK", 1, 7, AddressingMode::NoneAddressing),
         OpCode::new(0xaa, "TAX", 1, 2, AddressingMode::NoneAddressing),
         OpCode::new(0xe8, "INX", 1, 2, AddressingMode::NoneAddressing),
+
+        // Add with Carry
+        OpCode::new(0x69, "ADC", 2, 2, AddressingMode::Immediate),
+        OpCode::new(0x65, "ADC", 2, 3, AddressingMode::ZeroPage),
+        OpCode::new(0x75, "ADC", 2, 4, AddressingMode::ZeroPage_X),
+        OpCode::new(0x6D, "ADC", 3, 4, AddressingMode::Absolute),
+        OpCode::new(0x7D, "ADC", 3, 4, AddressingMode::Absolute_X),
+        OpCode::new(0x79, "ADC", 3, 4, AddressingMode::Absolute_Y),
+        OpCode::new(0x61, "ADC", 2, 6, AddressingMode::Indirect_X),
+        OpCode::new(0x71, "ADC", 2, 5, AddressingMode::Indirect_Y),
 
         // Logical AND
         OpCode::new(0x29, "AND", 2, 2, AddressingMode::Immediate),
@@ -72,6 +83,11 @@ lazy_static! {
         OpCode::new(0x50, "BVC", 2, 2, AddressingMode::NoneAddressing), // Branch if Overflow Clear
         OpCode::new(0x70, "BVS", 2, 2, AddressingMode::NoneAddressing), // If Overflow set
 
+        // Bit Test
+        OpCode::new(0x24, "BIT", 2, 3, AddressingMode::ZeroPage),
+        OpCode::new(0x2C, "BIT", 3, 4, AddressingMode::Absolute),
+
+
         /* Clear Flags */
         OpCode::new(0x18, "CLC", 1, 2, AddressingMode::NoneAddressing), // Clear Carry
         OpCode::new(0xD8, "CLD", 1, 2, AddressingMode::NoneAddressing), // Clear Decimal Mode
@@ -95,6 +111,41 @@ lazy_static! {
         OpCode::new(0xC0, "CPY", 2, 2, AddressingMode::Immediate),
         OpCode::new(0xC4, "CPY", 2, 3, AddressingMode::ZeroPage),
         OpCode::new(0xCC, "CPY", 3, 4, AddressingMode::Absolute),
+
+        /* Decrementing */
+        OpCode::new(0xC6, "DEC", 2, 5, AddressingMode::ZeroPage),
+        OpCode::new(0xD6, "DEC", 2, 6, AddressingMode::ZeroPage_X),
+        OpCode::new(0xCE, "DEC", 3, 6, AddressingMode::Absolute),
+        OpCode::new(0xDE, "DEC", 3, 7, AddressingMode::Absolute_X),
+
+        OpCode::new(0xCA, "DEX", 1, 2, AddressingMode::NoneAddressing),
+        OpCode::new(0x88, "DEY", 1, 2, AddressingMode::NoneAddressing),
+
+        // Exclusive OR
+        OpCode::new(0x49, "EOR", 2, 2, AddressingMode::Immediate),
+        OpCode::new(0x45, "EOR", 2, 3, AddressingMode::ZeroPage),
+        OpCode::new(0x55, "EOR", 2, 4, AddressingMode::ZeroPage_X),
+        OpCode::new(0x4D, "EOR", 3, 4, AddressingMode::Absolute),
+        OpCode::new(0x5D, "EOR", 3, 4, AddressingMode::Absolute_X), // + 1 if page crossed
+        OpCode::new(0x59, "EOR", 3, 4, AddressingMode::Absolute_Y), // + 1 if page crossed
+        OpCode::new(0x41, "EOR", 2, 6, AddressingMode::Indirect_X),
+        OpCode::new(0x51, "EOR", 2, 5, AddressingMode::Indirect_Y), // + 1 if page crossed
+
+        /* Incrementing */
+        OpCode::new(0xE6, "INC", 2, 5, AddressingMode::ZeroPage),
+        OpCode::new(0xF6, "INC", 2, 6, AddressingMode::ZeroPage_X),
+        OpCode::new(0xEE, "INC", 3, 6, AddressingMode::Absolute),
+        OpCode::new(0xFE, "INC", 3, 7, AddressingMode::Absolute_X),
+
+        OpCode::new(0xE8, "INX", 1, 2, AddressingMode::NoneAddressing),
+        OpCode::new(0xC8, "INY", 1, 2, AddressingMode::NoneAddressing),
+
+        /* Jumping */
+        OpCode::new(0x4C, "JMP", 0, 0, AddressingMode::NoneAddressing),
+        OpCode::new(0x6C, "JMP", 0, 0, AddressingMode::NoneAddressing),
+
+        OpCode::new(0x20, "JSR", 3, 6, AddressingMode::NoneAddressing),
+        OpCode::new(0x60, "RTS", 1, 6, AddressingMode::NoneAddressing),
 
         // Load Accumulator
         OpCode::new(0xA9, "LDA", 2, 2, AddressingMode::Immediate),
