@@ -159,19 +159,13 @@ impl CPU {
     }
 
     fn update_zero_flag(&mut self, result: u8) {
-        if result == 0 {
-            self.set_flag(FLAG_ZERO);
-        } else {
-            self.clear_flag(FLAG_ZERO);
-        }
+        let condition = result == 0;
+        self.set_flag_if(FLAG_ZERO, condition);
     }
 
     fn update_negative_flag(&mut self, result: u8) {
-        if result & FLAG_NEGATIVE != 0 {
-            self.set_flag(FLAG_NEGATIVE);
-        } else {
-            self.clear_flag(FLAG_NEGATIVE);
-        }
+        let condition = result & FLAG_NEGATIVE != 0;
+        self.set_flag_if(FLAG_NEGATIVE, condition);
     }
 
     fn update_zero_and_negative_flags(&mut self, result: u8) {
@@ -189,8 +183,18 @@ impl CPU {
         self.status = self.status | flag;
     }
 
+    
     fn clear_flag(&mut self, flag: u8) {
         self.status = self.status & !flag;
+    }
+
+    fn set_flag_if(&mut self, flag: u8, condition: bool) {
+        if condition {
+            self.set_flag(flag);
+        }
+        else {
+            self.clear_flag(flag);
+        }
     }
 
     fn set_register_a(&mut self, value: u8) {
@@ -200,10 +204,13 @@ impl CPU {
 
     fn set_register_x(&mut self, value: u8) {
         self.register_x = value;
+        self.update_zero_and_negative_flags(self.register_x);
+
     }
 
     fn set_register_y(&mut self, value: u8) {
         self.register_y = value;
+        self.update_zero_and_negative_flags(self.register_y);
     }
 
     fn set_program_counter(&mut self, value: u16) {
@@ -269,6 +276,9 @@ impl CPU {
 
                 /* BVS */
                 0x70 => self.branch(self.check_flag(FLAG_OVERFLOW)),
+                
+                /* BIT */
+                0x24 | 0x2C => self.bit(&opcode.mode),
 
                 /* Clear Flags */
                 0x18 => self.clear_flag(FLAG_CARRY),
@@ -292,6 +302,16 @@ impl CPU {
                 /* LDA */
                 0xA9 | 0xA5 | 0xB5 | 0xAD | 0xBD | 0xB9 | 0xA1 | 0xB1 => {
                     self.lda(&opcode.mode);
+                }
+
+                /* LDX */
+                0xA2 | 0xA6 | 0xB6 | 0xAE | 0xBE => {
+                    self.ldx(&opcode.mode);
+                }
+
+                /* LDY */
+                0xA0 | 0xA4 | 0xB4 | 0xAC | 0xBC => {
+                    self.ldy(&opcode.mode);
                 }
 
                 /* STA */
@@ -364,6 +384,19 @@ impl CPU {
         }
     }
 
+    fn bit(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+        let data = self.mem_read(addr);
+
+        let masked_value = data & self.register_a;
+        let bit6 = data & FLAG_OVERFLOW;
+        let bit7 = data & FLAG_NEGATIVE;
+        
+        self.set_flag_if(FLAG_OVERFLOW, bit6 != 0);
+        self.set_flag_if(FLAG_NEGATIVE, bit7 != 0);
+        self.set_flag_if(FLAG_ZERO, masked_value == 0);
+    }
+
     fn compare(&mut self, mode: &AddressingMode, compare_val: u8) {
         let addr = self.get_operand_address(mode);
         let data = self.mem_read(addr);
@@ -381,8 +414,21 @@ impl CPU {
         let addr = self.get_operand_address(mode);
         let value = self.mem_read(addr);
 
-        self.register_a = value;
-        self.update_zero_and_negative_flags(self.register_a);
+        self.set_register_a(value);
+    }
+
+    fn ldx(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+        let value = self.mem_read(addr);
+
+        self.set_register_x(value);
+    }
+
+    fn ldy(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+        let value = self.mem_read(addr);
+
+        self.set_register_y(value);
     }
 
     fn sta(&mut self, mode: &AddressingMode) {
@@ -668,6 +714,7 @@ mod test {
         assert_eq!(cpu.register_a, 0x11);
     }
 
+    
     #[test]
     fn test_flag_clears() {
         let mut cpu = CPU::new();
@@ -699,5 +746,85 @@ mod test {
         assert!(cpu.check_flag(FLAG_NEGATIVE));
     }
 
-    // TODO: cpx, cpy test, maybe...
+    #[test]
+    fn test_cpx_works() {
+        let mut cpu = CPU::new();
+        let reg_x_val = 10;
+        let carry_setter: u8 = 5;
+        let zero_setter: u8 = 10;
+        let neg_setter: u8 = 15;
+
+        cpu.load_and_run(vec![0xA2, reg_x_val, 0xE0, carry_setter, 0x00]);
+        assert!(cpu.check_flag(FLAG_CARRY));
+
+        cpu.load_and_run(vec![0xA2, reg_x_val, 0xE0, zero_setter, 0x00]);
+        assert!(cpu.check_flag(FLAG_ZERO));
+
+        cpu.load_and_run(vec![0xA2, reg_x_val, 0xE0, neg_setter, 0x00]);
+        assert!(cpu.check_flag(FLAG_NEGATIVE));
+    }
+
+    #[test]
+    fn test_cpy_works() {
+        let mut cpu = CPU::new();
+        let reg_y_val = 10;
+        let carry_setter: u8 = 5;
+        let zero_setter: u8 = 10;
+        let neg_setter: u8 = 15;
+
+        cpu.load_and_run(vec![0xA0, reg_y_val, 0xC0, carry_setter, 0x00]);
+        assert!(cpu.check_flag(FLAG_CARRY));
+
+        cpu.load_and_run(vec![0xA0, reg_y_val, 0xC0, zero_setter, 0x00]);
+        assert!(cpu.check_flag(FLAG_ZERO));
+
+        cpu.load_and_run(vec![0xA0, reg_y_val, 0xC0, neg_setter, 0x00]);
+        assert!(cpu.check_flag(FLAG_NEGATIVE));
+    }
+    
+    #[test]
+    fn test_bit_sets_v_n_and_clears_z() {
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xA9, 0xCF, 0x85, 0x10, 0x24, 0x10, 0x00]);
+        assert!(!cpu.check_flag(FLAG_ZERO));
+        assert!(cpu.check_flag(FLAG_OVERFLOW));
+        assert!(cpu.check_flag(FLAG_NEGATIVE));
+    }
+
+    #[test]
+    fn test_bit_sets_z_and_v_n() {
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xA9, 0xC0, 0x85, 0x10, 0xA9, 0x3F, 0x24, 0x10, 0x00]);
+        assert!(cpu.check_flag(FLAG_ZERO));
+        assert!(cpu.check_flag(FLAG_OVERFLOW));
+        assert!(cpu.check_flag(FLAG_NEGATIVE));
+    }
+
+    #[test] 
+    fn ldx_works_with_flags() {
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xA2, 0b1000_0000, 0x00]);
+        assert!(cpu.check_flag(FLAG_NEGATIVE));
+        assert!(!cpu.check_flag(FLAG_ZERO));
+        assert_eq!(cpu.register_x, 0b1000_0000);
+
+        cpu.load_and_run(vec![0xA2, 0x00, 0x00]);
+        assert!(cpu.check_flag(FLAG_ZERO));
+        assert!(!cpu.check_flag(FLAG_NEGATIVE));
+        assert_eq!(cpu.register_x, 0);
+    }
+
+    #[test] 
+    fn ldy_works_with_flags() {
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xA0, 0b1000_0000, 0x00]);
+        assert!(cpu.check_flag(FLAG_NEGATIVE));
+        assert!(!cpu.check_flag(FLAG_ZERO));
+        assert_eq!(cpu.register_y, 0b1000_0000);
+
+        cpu.load_and_run(vec![0xA0, 0x00, 0x00]);
+        assert!(cpu.check_flag(FLAG_ZERO));
+        assert!(!cpu.check_flag(FLAG_NEGATIVE));
+        assert_eq!(cpu.register_y, 0);
+    }
 }
