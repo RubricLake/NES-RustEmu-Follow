@@ -183,7 +183,6 @@ impl CPU {
         self.status = self.status | flag;
     }
 
-    
     fn clear_flag(&mut self, flag: u8) {
         self.status = self.status & !flag;
     }
@@ -191,8 +190,7 @@ impl CPU {
     fn set_flag_if(&mut self, flag: u8, condition: bool) {
         if condition {
             self.set_flag(flag);
-        }
-        else {
+        } else {
             self.clear_flag(flag);
         }
     }
@@ -205,7 +203,6 @@ impl CPU {
     fn set_register_x(&mut self, value: u8) {
         self.register_x = value;
         self.update_zero_and_negative_flags(self.register_x);
-
     }
 
     fn set_register_y(&mut self, value: u8) {
@@ -276,7 +273,7 @@ impl CPU {
 
                 /* BVS */
                 0x70 => self.branch(self.check_flag(FLAG_OVERFLOW)),
-                
+
                 /* BIT */
                 0x24 | 0x2C => self.bit(&opcode.mode),
 
@@ -298,6 +295,15 @@ impl CPU {
                 0xC0 | 0xC4 | 0xCC => {
                     self.compare(&opcode.mode, self.register_y); // CPY
                 }
+
+                /* Decrements */
+                0xC6 | 0xD6 | 0xCE | 0xDE => {
+                    self.dec(&opcode.mode)
+                }
+
+                0xCA => self.dex(&opcode.mode),
+                
+                0x88 => self.dey(&opcode.mode),
 
                 /* LDA */
                 0xA9 | 0xA5 | 0xB5 | 0xAD | 0xBD | 0xB9 | 0xA1 | 0xB1 => {
@@ -391,7 +397,7 @@ impl CPU {
         let masked_value = data & self.register_a;
         let bit6 = data & FLAG_OVERFLOW;
         let bit7 = data & FLAG_NEGATIVE;
-        
+
         self.set_flag_if(FLAG_OVERFLOW, bit6 != 0);
         self.set_flag_if(FLAG_NEGATIVE, bit7 != 0);
         self.set_flag_if(FLAG_ZERO, masked_value == 0);
@@ -408,6 +414,24 @@ impl CPU {
         }
 
         self.update_zero_and_negative_flags(compare_val.wrapping_sub(data));
+    }
+
+    fn dec(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+        let result = self.mem_read(addr).wrapping_sub(1);
+
+        self.mem_write(addr, result);
+        self.update_zero_and_negative_flags(result);
+    }
+
+    fn dex(&mut self, mode: &AddressingMode) {
+        let result = self.register_x.wrapping_sub(1);
+        self.set_register_x(result);
+    }
+
+    fn dey(&mut self, mode: &AddressingMode) {
+        let result = self.register_y.wrapping_sub(1);
+        self.set_register_y(result);
     }
 
     fn lda(&mut self, mode: &AddressingMode) {
@@ -714,7 +738,6 @@ mod test {
         assert_eq!(cpu.register_a, 0x11);
     }
 
-    
     #[test]
     fn test_flag_clears() {
         let mut cpu = CPU::new();
@@ -781,7 +804,7 @@ mod test {
         cpu.load_and_run(vec![0xA0, reg_y_val, 0xC0, neg_setter, 0x00]);
         assert!(cpu.check_flag(FLAG_NEGATIVE));
     }
-    
+
     #[test]
     fn test_bit_sets_v_n_and_clears_z() {
         let mut cpu = CPU::new();
@@ -800,7 +823,7 @@ mod test {
         assert!(cpu.check_flag(FLAG_NEGATIVE));
     }
 
-    #[test] 
+    #[test]
     fn ldx_works_with_flags() {
         let mut cpu = CPU::new();
         cpu.load_and_run(vec![0xA2, 0b1000_0000, 0x00]);
@@ -814,7 +837,7 @@ mod test {
         assert_eq!(cpu.register_x, 0);
     }
 
-    #[test] 
+    #[test]
     fn ldy_works_with_flags() {
         let mut cpu = CPU::new();
         cpu.load_and_run(vec![0xA0, 0b1000_0000, 0x00]);
