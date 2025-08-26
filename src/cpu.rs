@@ -853,17 +853,40 @@ mod test {
 
     #[test]
     fn dec_works_with_flags() {
-        todo!("");
+        let mem_val = 0;
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xA9, mem_val, 0x85, 0x20, 0xC6, 0x20, 0x00]);
+        assert!(cpu.check_flag(FLAG_NEGATIVE));
+
+        let mem_val = 1;
+        cpu.load_and_run(vec![0xA9, mem_val, 0x85, 0x20, 0xC6, 0x20, 0x00]);
+        assert!(cpu.check_flag(FLAG_ZERO));
     }
 
     #[test]
     fn dex_works_with_flags() {
-        todo!("");
+        let reg_val = 0;
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xA2, reg_val, 0xCA, 0x00]);
+        assert!(cpu.check_flag(FLAG_NEGATIVE));
+
+        let reg_val = 1;
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xA2, reg_val, 0xCA, 0x00]);
+        assert!(cpu.check_flag(FLAG_ZERO));
     }
 
     #[test]
     fn dey_works_with_flags() {
-        todo!("");
+        let reg_val = 0;
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xA0, reg_val, 0x88, 0x00]);
+        assert!(cpu.check_flag(FLAG_NEGATIVE));
+
+        let reg_val = 1;
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xA0, reg_val, 0x88, 0x00]);
+        assert!(cpu.check_flag(FLAG_ZERO));
     }
     
 }
