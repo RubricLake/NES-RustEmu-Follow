@@ -850,4 +850,20 @@ mod test {
         assert!(!cpu.check_flag(FLAG_NEGATIVE));
         assert_eq!(cpu.register_y, 0);
     }
+
+    #[test]
+    fn dec_works_with_flags() {
+        todo!("");
+    }
+
+    #[test]
+    fn dex_works_with_flags() {
+        todo!("");
+    }
+
+    #[test]
+    fn dey_works_with_flags() {
+        todo!("");
+    }
+    
 }
