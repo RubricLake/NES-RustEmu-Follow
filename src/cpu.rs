@@ -295,30 +295,46 @@ impl CPU {
                 0xC0 | 0xC4 | 0xCC => {
                     self.compare(&opcode.mode, self.register_y); // CPY
                 }
-                
+
                 /* Decrements */
-                0xC6 | 0xD6 | 0xCE | 0xDE => {
-                    self.dec(&opcode.mode)
-                }
-                
+                0xC6 | 0xD6 | 0xCE | 0xDE => self.dec(&opcode.mode),
+
                 0xCA => self.dex(),
-                
+
                 0x88 => self.dey(),
-                
+
                 /* EOR */
-                0x49 | 0x45 | 0x55 | 0x4D | 0x5D | 0x59 | 0x41 | 0x51 => {
-                    self.eor(&opcode.mode)
-                }
-                
+                0x49 | 0x45 | 0x55 | 0x4D | 0x5D | 0x59 | 0x41 | 0x51 => self.eor(&opcode.mode),
+
                 /* Increments */
-                0xE6 | 0xF6 | 0xEE | 0xFE => {
-                    self.inc(&opcode.mode)
-                }
+                0xE6 | 0xF6 | 0xEE | 0xFE => self.inc(&opcode.mode),
 
                 0xE8 => self.inx(),
 
                 0xC8 => self.iny(),
-                
+
+                /* JMP ABSOLUTE */
+                0x4C => {
+                    // Absolute
+                    let jmp_addr = self.mem_read_u16(self.program_counter);
+                    self.program_counter = jmp_addr;
+                }
+
+                /* JMP INDIRECT (bug included) */
+                0x6C => {
+                    let addr = self.mem_read_u16(self.program_counter);
+                    let indirect = if addr & 0xFF == 0xFF {
+                        let lo = self.mem_read(addr);
+                        let hi = self.mem_read(addr & 0xFF00);
+                        (hi as u16) << 8 | (lo as u16)
+                    } else {
+                        self.mem_read_u16(addr)
+                    };
+
+                    self.program_counter = indirect;
+                }
+
+
                 /* LDA */
                 0xA9 | 0xA5 | 0xB5 | 0xAD | 0xBD | 0xB9 | 0xA1 | 0xB1 => {
                     self.lda(&opcode.mode);
@@ -488,7 +504,7 @@ impl CPU {
     fn inc(&mut self, mode: &AddressingMode) {
         let addr = self.get_operand_address(mode);
         let result = self.mem_read(addr).wrapping_add(1);
-        
+
         self.update_zero_and_negative_flags(result);
         self.mem_write(addr, result);
     }
@@ -502,7 +518,6 @@ impl CPU {
         self.register_y = self.register_y.wrapping_add(1);
         self.update_zero_and_negative_flags(self.register_y);
     }
-
 }
 
 // CPU Testing Here
@@ -894,7 +909,7 @@ mod test {
         assert_eq!(cpu.register_a, 0);
 
         let a_val: u8 = 0b0011_1100;
-        let data: u8 =  0b1001_1001;
+        let data: u8 = 0b1001_1001;
 
         let mut cpu = CPU::new();
         cpu.load_and_run(vec![0xA9, a_val, 0x49, data, 0x00]);
@@ -917,7 +932,7 @@ mod test {
         assert!(cpu.check_flag(FLAG_NEGATIVE));
         assert_eq!(cpu.register_x, 0b1000_0001);
     }
-    
+
     #[test]
     fn iny_works_with_flags() {
         let reg_val = 0xff;
@@ -933,4 +948,28 @@ mod test {
         assert_eq!(cpu.register_y, 0b1000_0001);
     }
 
+    #[test]
+    fn jmp_abs_works() {
+        let hi = 0xAB;
+        let lo = 0xCD;
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0x4C, lo, hi, 0x00]);
+        assert_eq!(cpu.program_counter, 0xABCD + 1);
+    }
+
+    #[test]
+    fn jmp_ind_works() {
+        let program: Vec<u8> = vec![
+            0xA9, 0xFC, // Store FC in A
+            0x8D, 0x20, 0x01, // Store A into Memory Addr 0x0120
+            0xA9, 0xBA, // Store BA in A
+            0x8D, 0x21, 0x01, // Store A into Memory Addr 0x0121
+            0x6C, 0x20, 01, // JMP IND to 0x120
+            0x00
+        ];
+
+        let mut cpu = CPU::new();
+        cpu.load_and_run(program);
+        assert_eq!(cpu.program_counter, 0xBAFC + 1);
+    }
 }
