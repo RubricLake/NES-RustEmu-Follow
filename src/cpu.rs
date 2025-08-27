@@ -295,16 +295,30 @@ impl CPU {
                 0xC0 | 0xC4 | 0xCC => {
                     self.compare(&opcode.mode, self.register_y); // CPY
                 }
-
+                
                 /* Decrements */
                 0xC6 | 0xD6 | 0xCE | 0xDE => {
                     self.dec(&opcode.mode)
                 }
-
-                0xCA => self.dex(&opcode.mode),
                 
-                0x88 => self.dey(&opcode.mode),
+                0xCA => self.dex(),
+                
+                0x88 => self.dey(),
+                
+                /* EOR */
+                0x49 | 0x45 | 0x55 | 0x4D | 0x5D | 0x59 | 0x41 | 0x51 => {
+                    self.eor(&opcode.mode)
+                }
+                
+                /* Increments */
+                0xE6 | 0xF6 | 0xEE | 0xFE => {
+                    self.inc(&opcode.mode)
+                }
 
+                0xE8 => self.inx(),
+
+                0xC8 => self.iny(),
+                
                 /* LDA */
                 0xA9 | 0xA5 | 0xB5 | 0xAD | 0xBD | 0xB9 | 0xA1 | 0xB1 => {
                     self.lda(&opcode.mode);
@@ -326,7 +340,6 @@ impl CPU {
                 }
 
                 0xAA => self.tax(),
-                0xE8 => self.inx(),
                 0x00 => return,
                 _ => todo!(
                     "{} (0x{:x}) with mode {:?}",
@@ -424,14 +437,21 @@ impl CPU {
         self.update_zero_and_negative_flags(result);
     }
 
-    fn dex(&mut self, mode: &AddressingMode) {
+    fn dex(&mut self) {
         let result = self.register_x.wrapping_sub(1);
         self.set_register_x(result);
     }
 
-    fn dey(&mut self, mode: &AddressingMode) {
+    fn dey(&mut self) {
         let result = self.register_y.wrapping_sub(1);
         self.set_register_y(result);
+    }
+
+    fn eor(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+        let data = self.mem_read(addr);
+
+        self.set_register_a(self.register_a ^ data);
     }
 
     fn lda(&mut self, mode: &AddressingMode) {
@@ -465,10 +485,24 @@ impl CPU {
         self.update_zero_and_negative_flags(self.register_x);
     }
 
+    fn inc(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+        let result = self.mem_read(addr).wrapping_add(1);
+        
+        self.update_zero_and_negative_flags(result);
+        self.mem_write(addr, result);
+    }
+
     fn inx(&mut self) {
         self.register_x = self.register_x.wrapping_add(1);
         self.update_zero_and_negative_flags(self.register_x);
     }
+
+    fn iny(&mut self) {
+        self.register_y = self.register_y.wrapping_add(1);
+        self.update_zero_and_negative_flags(self.register_y);
+    }
+
 }
 
 // CPU Testing Here
@@ -535,47 +569,6 @@ mod test {
 
         assert!(cpu.check_flag(FLAG_ZERO));
         assert!(!cpu.check_flag(FLAG_NEGATIVE));
-    }
-
-    #[test]
-    fn test_0xe8_inx_increment_x() {
-        let mut cpu = CPU::new();
-        cpu.load_and_reset(vec![0xe8, 0x00]);
-        cpu.register_x = 10;
-        cpu.run();
-
-        assert_eq!(cpu.register_x, 11);
-    }
-
-    #[test]
-    fn test_0xe8_inx_zero_flag() {
-        let mut cpu = CPU::new();
-        cpu.load_and_reset(vec![0xe8, 0x00]);
-        cpu.register_x = 0b1111_1111;
-        cpu.run();
-
-        assert!(cpu.check_flag(FLAG_ZERO));
-        assert!(!cpu.check_flag(FLAG_NEGATIVE))
-    }
-
-    #[test]
-    fn test_0xe8_inx_negative_flag() {
-        let mut cpu = CPU::new();
-        cpu.load_and_reset(vec![0xe8, 0x00]);
-        cpu.register_x = 0b1000_0001;
-        cpu.run();
-        assert!(cpu.check_flag(FLAG_NEGATIVE));
-        assert!(!cpu.check_flag(FLAG_ZERO));
-    }
-
-    #[test]
-    fn test_inx_overflow() {
-        let mut cpu = CPU::new();
-        cpu.load_and_reset(vec![0xe8, 0xe8, 0x00]);
-        cpu.register_x = 0xff;
-        cpu.run();
-
-        assert_eq!(cpu.register_x, 1)
     }
 
     #[test]
@@ -888,5 +881,56 @@ mod test {
         cpu.load_and_run(vec![0xA0, reg_val, 0x88, 0x00]);
         assert!(cpu.check_flag(FLAG_ZERO));
     }
+
+    #[test]
+    fn eor_works_with_flags() {
+        let a_val: u8 = 0b1010_1010;
+        let data: u8 = 0b1010_1010;
+
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xA9, a_val, 0x49, data, 0x00]);
+        assert!(cpu.check_flag(FLAG_ZERO));
+        assert!(!cpu.check_flag(FLAG_NEGATIVE));
+        assert_eq!(cpu.register_a, 0);
+
+        let a_val: u8 = 0b0011_1100;
+        let data: u8 =  0b1001_1001;
+
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xA9, a_val, 0x49, data, 0x00]);
+        assert!(!cpu.check_flag(FLAG_ZERO));
+        assert!(cpu.check_flag(FLAG_NEGATIVE));
+        assert_eq!(cpu.register_a, 0b1010_0101);
+    }
+
+    #[test]
+    fn inx_works_with_flags() {
+        let reg_val = 0xff;
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xA2, reg_val, 0xE8, 0x00]);
+        assert!(cpu.check_flag(FLAG_ZERO));
+        assert_eq!(cpu.register_x, 0);
+
+        let reg_val = 0b1000_0000;
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xA2, reg_val, 0xE8, 0x00]);
+        assert!(cpu.check_flag(FLAG_NEGATIVE));
+        assert_eq!(cpu.register_x, 0b1000_0001);
+    }
     
+    #[test]
+    fn iny_works_with_flags() {
+        let reg_val = 0xff;
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xA0, reg_val, 0xC8, 0x00]);
+        assert!(cpu.check_flag(FLAG_ZERO));
+        assert_eq!(cpu.register_x, 0);
+
+        let reg_val = 0b1000_0000;
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xA0, reg_val, 0xC8, 0x00]);
+        assert!(cpu.check_flag(FLAG_NEGATIVE));
+        assert_eq!(cpu.register_y, 0b1000_0001);
+    }
+
 }
