@@ -11,6 +11,9 @@ const FLAG_UNUSED: u8 = 0b0010_0000; // bit 5 (should always read as 1 on NES)
 const FLAG_OVERFLOW: u8 = 0b0100_0000; // bit 6
 const FLAG_NEGATIVE: u8 = 0b1000_0000; // bit 7
 
+const STACK_RESET: u8 = 0xf8;
+const STACK : u16 = 0x0100;
+
 #[derive(Debug)]
 #[allow(non_camel_case_types)]
 pub enum AddressingMode {
@@ -61,6 +64,7 @@ pub struct CPU {
     pub register_a: u8,
     pub register_x: u8,
     pub register_y: u8,
+    pub stack_pointer: u8,
     pub status: u8,
     pub program_counter: u16,
     pub memory: [u8; 0xFFFF],
@@ -73,6 +77,7 @@ impl CPU {
             register_a: 0,
             register_x: 0,
             register_y: 0,
+            stack_pointer: STACK_RESET,
             status: 0,
             program_counter: 0,
             memory: [0; 0xFFFF],
@@ -136,8 +141,9 @@ impl CPU {
     pub fn reset(&mut self) {
         self.register_a = 0;
         self.register_x = 0;
-        self.status = 0;
-
+        self.register_y = 0;
+        self.stack_pointer = 0;
+        self.status = FLAG_INTERRUPT_DISABLE;
         self.program_counter = self.mem_read_u16(0xFFFC);
     }
 
@@ -334,6 +340,10 @@ impl CPU {
                     self.program_counter = indirect;
                 }
 
+                /* JSR */
+                0x20 => {
+                    todo!("JSR")
+                }
 
                 /* LDA */
                 0xA9 | 0xA5 | 0xB5 | 0xAD | 0xBD | 0xB9 | 0xA1 | 0xB1 => {
@@ -518,6 +528,32 @@ impl CPU {
         self.register_y = self.register_y.wrapping_add(1);
         self.update_zero_and_negative_flags(self.register_y);
     }
+
+    fn stack_pop(&mut self) -> u8 {
+        self.stack_pointer = self.stack_pointer.wrapping_add(1);
+        self.mem_read((STACK as u16) + (self.stack_pointer as u16))
+    }
+
+    
+    fn stack_pop_u16(&mut self) -> u16 {
+        let lo = self.stack_pop() as u16;
+        let hi = self.stack_pop() as u16;
+        
+        hi << 8 | lo
+    }
+
+    fn stack_push(&mut self, data: u8) {
+        self.mem_write((STACK as u16) + (self.stack_pointer as u16), data);
+        self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+    }
+
+    fn stack_push_u16(&mut self, data: u16) {
+        let hi = (data >> 8) as u8;
+        let lo = (data & 0xff) as u8;
+        self.stack_push(hi);
+        self.stack_push(lo);
+    }
+    
 }
 
 // CPU Testing Here
