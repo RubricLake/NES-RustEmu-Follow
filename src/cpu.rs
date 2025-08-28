@@ -964,12 +964,28 @@ mod test {
             0x8D, 0x20, 0x01, // Store A into Memory Addr 0x0120
             0xA9, 0xBA, // Store BA in A
             0x8D, 0x21, 0x01, // Store A into Memory Addr 0x0121
-            0x6C, 0x20, 01, // JMP IND to 0x120
+            0x6C, 0x20, 0x01, // JMP IND to 0x120
             0x00
         ];
 
         let mut cpu = CPU::new();
         cpu.load_and_run(program);
         assert_eq!(cpu.program_counter, 0xBAFC + 1);
+    }
+
+    #[test]
+    fn jmp_ind_bug_works() {
+        let program: Vec<u8> = vec![
+            0xA9, 0x34, // Store 0x34 in A
+            0x8D, 0xFF, 0xAB, // Store A into Memory Addr 0xABFF
+            0xA9, 0x12, // Store 0x12 in A
+            0x8D, 0x00, 0xAB, // Store A into Memory Addr 0xAB00
+            0x6C, 0xFF, 0xAB, // JMP IND to 0xABFF (bug)
+            0x00
+        ];
+
+        let mut cpu = CPU::new();
+        cpu.load_and_run(program);
+        assert_eq!(cpu.program_counter, 0x1234 + 1);
     }
 }
