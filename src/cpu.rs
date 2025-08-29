@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+
 use crate::opcodes;
 
 // Flag Constants
@@ -342,7 +343,9 @@ impl CPU {
 
                 /* JSR */
                 0x20 => {
-                    todo!("JSR")
+                    self.stack_push_u16(self.program_counter + 2 - 1);
+                    let jump_addr = self.mem_read_u16(self.program_counter);
+                    self.program_counter = jump_addr;
                 }
 
                 /* LDA */
@@ -358,6 +361,13 @@ impl CPU {
                 /* LDY */
                 0xA0 | 0xA4 | 0xB4 | 0xAC | 0xBC => {
                     self.ldy(&opcode.mode);
+                }
+
+                /* LSR */
+                0x4A => self.lsr_accumulator(),
+
+                0x46 | 0x56 | 0x4E | 0x5E => {
+                    self.lsr(&opcode.mode);
                 }
 
                 /* STA */
@@ -499,6 +509,23 @@ impl CPU {
         let value = self.mem_read(addr);
 
         self.set_register_y(value);
+    }
+
+    fn lsr_accumulator(&mut self) {
+        let bit0 = self.register_a & 1;
+        self.set_register_a(self.register_a >> 1);
+        self.set_flag_if(FLAG_CARRY, bit0 == 1);
+    }
+
+    fn lsr(&mut self, mode:&AddressingMode) {
+        let addr = self.get_operand_address(mode);
+        let data = self.mem_read(addr);
+        let result = data >> 1;
+        let bit0 = data & 1;
+
+        self.mem_write(addr, result);
+        self.update_zero_and_negative_flags(result);
+        self.set_flag_if(FLAG_CARRY, bit0 == 1);
     }
 
     fn sta(&mut self, mode: &AddressingMode) {
@@ -1023,5 +1050,71 @@ mod test {
         let mut cpu = CPU::new();
         cpu.load_and_run(program);
         assert_eq!(cpu.program_counter, 0x1234 + 1);
+    }
+
+    #[test]
+    fn jsr_works() {
+        todo!("");
+    }
+
+    #[test]
+    fn lsr_accumulator_works_with_flags() {
+        let mut cpu = CPU::new();
+        let program: Vec<u8> = vec![
+            0xA9, 0b1000_0001, // Load Value into A
+            0x4A, // LSR A
+            0x00,
+        ];
+        cpu.load_and_run(program);
+        assert!(cpu.check_flag(FLAG_CARRY));
+        assert!(!cpu.check_flag(FLAG_ZERO));
+        assert!(!cpu.check_flag(FLAG_NEGATIVE));
+        assert_eq!(cpu.register_a, 0b0100_0000);
+
+        let program: Vec<u8> = vec![
+            0xA9, 0b000_0010, // Load Value into A
+            0x4A, // LSR A
+            0x00,
+        ];
+        cpu.load_and_run(program);
+        assert!(!cpu.check_flag(FLAG_CARRY));
+        assert!(!cpu.check_flag(FLAG_ZERO));
+        assert!(!cpu.check_flag(FLAG_NEGATIVE));
+        assert_eq!(cpu.register_a, 1);
+    }
+
+    #[test]
+    fn lsr_works() {
+        let hi: u8 = 0x12;
+        let lo: u8 = 0x34;
+        let mut val = 0b000_0001;
+        let mut cpu = CPU::new();
+        let mut program: Vec<u8> = vec![
+            0xA9, val, // Load Value into A
+            0x8D, lo, hi, // Store A at location 0x1234
+            0x4E, lo, hi, // LSR at 0x1234
+            0x00,
+        ];
+
+        cpu.load_and_run(program);
+        assert_eq!(cpu.mem_read(0x1234), 0);
+        assert!(cpu.check_flag(FLAG_ZERO));
+        assert!(cpu.check_flag(FLAG_CARRY));
+        assert!(!cpu.check_flag(FLAG_NEGATIVE));
+
+        val = 0b1000_0000;
+        program = vec![
+            0xA9, val, // Load Value into A
+            0x8D, lo, hi, // Store A at location 0x1234
+            0x4E, lo, hi, // LSR at 0x1234
+            0x00,
+        ];
+        
+        cpu.load_and_run(program);
+        assert_eq!(cpu.mem_read(0x1234), 0b0100_0000);
+        assert!(!cpu.check_flag(FLAG_ZERO));
+        assert!(!cpu.check_flag(FLAG_CARRY));
+        assert!(!cpu.check_flag(FLAG_NEGATIVE));
+        
     }
 }
