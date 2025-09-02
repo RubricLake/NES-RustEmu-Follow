@@ -348,6 +348,11 @@ impl CPU {
                     self.program_counter = jump_addr;
                 }
 
+                /* RTS */
+                0x60 => {
+                    self.program_counter = self.stack_pop_u16() + 1;
+                }
+
                 /* LDA */
                 0xA9 | 0xA5 | 0xB5 | 0xAD | 0xBD | 0xB9 | 0xA1 | 0xB1 => {
                     self.lda(&opcode.mode);
@@ -1053,8 +1058,22 @@ mod test {
     }
 
     #[test]
-    fn jsr_works() {
-        todo!("");
+    fn test_jsr_and_rts_works() {
+        let mut cpu = CPU::new();
+        let program : Vec<u8> = vec![
+            0xA9, 0x11, // Load 0x11 into A
+            0x20, 0x34, 0x12, // Jump to instruction 1234, push PC - 1 to stack.
+            0xA9, 0x22, // Load 0x22 into A
+            0x00, // BRK
+        ];
+
+        cpu.load_and_reset(program);
+        cpu.mem_write(0x1234, 0x60);
+        cpu.mem_write(0x1235, 0xA9); // Should be ignored
+        cpu.mem_write(0x1236, 0x33); // Should be ignored
+        cpu.run();
+
+        assert_eq!(cpu.register_a, 0x22);
     }
 
     #[test]
@@ -1115,6 +1134,5 @@ mod test {
         assert!(!cpu.check_flag(FLAG_ZERO));
         assert!(!cpu.check_flag(FLAG_CARRY));
         assert!(!cpu.check_flag(FLAG_NEGATIVE));
-        
     }
 }
