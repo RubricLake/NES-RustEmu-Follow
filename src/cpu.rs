@@ -202,6 +202,14 @@ impl CPU {
         }
     }
 
+    fn get_flag_val(&self, flag: u8) -> u8 {
+        if self.check_flag(flag) {
+            1
+        } else {
+            0
+        }
+    }
+
     fn set_register_a(&mut self, value: u8) {
         self.register_a = value;
         self.update_zero_and_negative_flags(self.register_a);
@@ -380,6 +388,40 @@ impl CPU {
                     self.sta(&opcode.mode);
                 }
 
+                /* NOP */
+                0xEA => {
+                    // Nothing to do..?
+                }
+
+                /* ORA */
+                0x09 | 0x05 | 0x15 | 0x0D | 0x1D | 0x19 | 0x01 | 0x11 => {
+                    self.ora(&opcode.mode);
+                }
+
+                /* PHA */
+                0x48 => {
+                    self.stack_push(self.register_a);
+                }
+
+                /* PHP */
+                0x08 => {
+                    self.php();
+                }
+                
+                /* PLP */
+                0x28 => {
+                    self.plp();
+                }
+
+                /* Rotates */
+                0x2A | 0x26 | 0x36 | 0x2E | 0x3E => {
+                    self.rol(&opcode.mode);
+                }
+
+                0x6A | 0x66 | 0x76 | 0x6E | 0x7E => {
+                    self.ror(&opcode.mode);
+                }
+
                 0xAA => self.tax(),
                 0x00 => return,
                 _ => todo!(
@@ -533,10 +575,70 @@ impl CPU {
         self.set_flag_if(FLAG_CARRY, bit0 == 1);
     }
 
+    fn ora(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+        let data = self.mem_read(addr);
+
+        self.set_register_a(self.register_a | data);
+    }
+
+    fn php(&mut self) {
+        let status_copy = self.status;
+        self.stack_push(status_copy | FLAG_UNUSED | FLAG_BREAK);
+    }
+
+    fn plp(&mut self) {
+        self.status = self.stack_pop();
+        self.clear_flag(FLAG_BREAK);
+        self.set_flag(FLAG_UNUSED);
+    }
+
+    fn rol(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+        let data = self.mem_read(addr);
+        let current_carry = self.get_flag_val(FLAG_CARRY);
+        
+        let result = (data << 1) | current_carry;
+        self.set_flag_if(FLAG_CARRY, data >> 7 == 1);
+        self.update_zero_and_negative_flags(result);
+        self.mem_write(addr, result);
+    }
+
+    fn rol_accumulator(&mut self) {
+        let data = self.register_a;
+        let current_carry = self.get_flag_val(FLAG_CARRY);
+        
+        let result = (data << 1) | current_carry;
+        self.set_flag_if(FLAG_CARRY, data >> 7 == 1);
+        self.set_register_a(result);
+    }
+    
+    fn ror(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+        let data = self.mem_read(addr);
+        let current_carry = self.get_flag_val(FLAG_CARRY);
+        
+        let result = (data >> 1) | (current_carry << 7);
+        self.set_flag_if(FLAG_CARRY, data & 1 == 1);
+        self.update_zero_and_negative_flags(result);
+        self.mem_write(addr, result);
+    }
+
+    fn ror_accumulator(&mut self) {
+        let data = self.register_a;
+        let current_carry = self.get_flag_val(FLAG_CARRY);
+        
+        let result = (data >> 1) | (current_carry << 7);
+        self.set_flag_if(FLAG_CARRY, data & 1 == 1);
+        self.set_register_a(result);
+    }
+
     fn sta(&mut self, mode: &AddressingMode) {
         let addr = self.get_operand_address(mode);
         self.mem_write(addr, self.register_a);
     }
+
+
 
     fn tax(&mut self) {
         self.register_x = self.register_a;
