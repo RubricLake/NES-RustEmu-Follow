@@ -12,8 +12,8 @@ const FLAG_UNUSED: u8 = 0b0010_0000; // bit 5 (should always read as 1 on NES)
 const FLAG_OVERFLOW: u8 = 0b0100_0000; // bit 6
 const FLAG_NEGATIVE: u8 = 0b1000_0000; // bit 7
 
-const STACK_RESET: u8 = 0xf8;
-const STACK : u16 = 0x0100;
+const STACK_RESET: u8 = 0xff;
+const STACK: u16 = 0x0100;
 
 #[derive(Debug)]
 #[allow(non_camel_case_types)]
@@ -203,11 +203,7 @@ impl CPU {
     }
 
     fn get_flag_val(&self, flag: u8) -> u8 {
-        if self.check_flag(flag) {
-            1
-        } else {
-            0
-        }
+        if self.check_flag(flag) { 1 } else { 0 }
     }
 
     fn set_register_a(&mut self, value: u8) {
@@ -407,18 +403,22 @@ impl CPU {
                 0x08 => {
                     self.php();
                 }
-                
+
                 /* PLP */
                 0x28 => {
                     self.plp();
                 }
 
                 /* Rotates */
-                0x2A | 0x26 | 0x36 | 0x2E | 0x3E => {
+                0x2A => self.rol_accumulator(),
+
+                0x6A => self.ror_accumulator(),
+
+                0x26 | 0x36 | 0x2E | 0x3E => {
                     self.rol(&opcode.mode);
                 }
 
-                0x6A | 0x66 | 0x76 | 0x6E | 0x7E => {
+                0x66 | 0x76 | 0x6E | 0x7E => {
                     self.ror(&opcode.mode);
                 }
 
@@ -564,7 +564,7 @@ impl CPU {
         self.set_flag_if(FLAG_CARRY, bit0 == 1);
     }
 
-    fn lsr(&mut self, mode:&AddressingMode) {
+    fn lsr(&mut self, mode: &AddressingMode) {
         let addr = self.get_operand_address(mode);
         let data = self.mem_read(addr);
         let result = data >> 1;
@@ -597,7 +597,7 @@ impl CPU {
         let addr = self.get_operand_address(mode);
         let data = self.mem_read(addr);
         let current_carry = self.get_flag_val(FLAG_CARRY);
-        
+
         let result = (data << 1) | current_carry;
         self.set_flag_if(FLAG_CARRY, data >> 7 == 1);
         self.update_zero_and_negative_flags(result);
@@ -607,17 +607,17 @@ impl CPU {
     fn rol_accumulator(&mut self) {
         let data = self.register_a;
         let current_carry = self.get_flag_val(FLAG_CARRY);
-        
+
         let result = (data << 1) | current_carry;
         self.set_flag_if(FLAG_CARRY, data >> 7 == 1);
         self.set_register_a(result);
     }
-    
+
     fn ror(&mut self, mode: &AddressingMode) {
         let addr = self.get_operand_address(mode);
         let data = self.mem_read(addr);
         let current_carry = self.get_flag_val(FLAG_CARRY);
-        
+
         let result = (data >> 1) | (current_carry << 7);
         self.set_flag_if(FLAG_CARRY, data & 1 == 1);
         self.update_zero_and_negative_flags(result);
@@ -627,7 +627,7 @@ impl CPU {
     fn ror_accumulator(&mut self) {
         let data = self.register_a;
         let current_carry = self.get_flag_val(FLAG_CARRY);
-        
+
         let result = (data >> 1) | (current_carry << 7);
         self.set_flag_if(FLAG_CARRY, data & 1 == 1);
         self.set_register_a(result);
@@ -637,8 +637,6 @@ impl CPU {
         let addr = self.get_operand_address(mode);
         self.mem_write(addr, self.register_a);
     }
-
-
 
     fn tax(&mut self) {
         self.register_x = self.register_a;
@@ -668,11 +666,10 @@ impl CPU {
         self.mem_read((STACK as u16) + (self.stack_pointer as u16))
     }
 
-    
     fn stack_pop_u16(&mut self) -> u16 {
         let lo = self.stack_pop() as u16;
         let hi = self.stack_pop() as u16;
-        
+
         hi << 8 | lo
     }
 
@@ -687,7 +684,6 @@ impl CPU {
         self.stack_push(hi);
         self.stack_push(lo);
     }
-    
 }
 
 // CPU Testing Here
@@ -1135,7 +1131,7 @@ mod test {
             0xA9, 0xBA, // Store BA in A
             0x8D, 0x21, 0x01, // Store A into Memory Addr 0x0121
             0x6C, 0x20, 0x01, // JMP IND to 0x120
-            0x00
+            0x00,
         ];
 
         let mut cpu = CPU::new();
@@ -1151,7 +1147,7 @@ mod test {
             0xA9, 0x12, // Store 0x12 in A
             0x8D, 0x00, 0xAB, // Store A into Memory Addr 0xAB00
             0x6C, 0xFF, 0xAB, // JMP IND to 0xABFF (bug)
-            0x00
+            0x00,
         ];
 
         let mut cpu = CPU::new();
@@ -1162,7 +1158,7 @@ mod test {
     #[test]
     fn test_jsr_and_rts_works() {
         let mut cpu = CPU::new();
-        let program : Vec<u8> = vec![
+        let program: Vec<u8> = vec![
             0xA9, 0x11, // Load 0x11 into A
             0x20, 0x34, 0x12, // Jump to instruction 1234, push PC - 1 to stack.
             0xA9, 0x22, // Load 0x22 into A
@@ -1182,8 +1178,9 @@ mod test {
     fn lsr_accumulator_works_with_flags() {
         let mut cpu = CPU::new();
         let program: Vec<u8> = vec![
-            0xA9, 0b1000_0001, // Load Value into A
-            0x4A, // LSR A
+            0xA9,
+            0b1000_0001, // Load Value into A
+            0x4A,        // LSR A
             0x00,
         ];
         cpu.load_and_run(program);
@@ -1194,7 +1191,7 @@ mod test {
 
         let program: Vec<u8> = vec![
             0xA9, 0b000_0010, // Load Value into A
-            0x4A, // LSR A
+            0x4A,       // LSR A
             0x00,
         ];
         cpu.load_and_run(program);
@@ -1230,11 +1227,114 @@ mod test {
             0x4E, lo, hi, // LSR at 0x1234
             0x00,
         ];
-        
+
         cpu.load_and_run(program);
         assert_eq!(cpu.mem_read(0x1234), 0b0100_0000);
         assert!(!cpu.check_flag(FLAG_ZERO));
         assert!(!cpu.check_flag(FLAG_CARRY));
         assert!(!cpu.check_flag(FLAG_NEGATIVE));
     }
+
+    #[test]
+    fn nop_works() {
+        let mut cpu = CPU::new();
+        let program = vec![0xEA, 0xEA, 0xEA, 0x00];
+        cpu.load_and_reset(program);
+        let current_pc = cpu.program_counter;
+        cpu.run();
+
+        assert_eq!(current_pc + 4, cpu.program_counter);
+    }
+
+    #[test]
+    fn ora_works_with_flags() {
+        let mut cpu = CPU::new();
+        let program = vec![0xA9, 0x00, 0x09, 0x00, 0x00];
+        cpu.load_and_run(program);
+        assert!(cpu.check_flag(FLAG_ZERO));
+
+        let program = vec![0xA9, 0b0011_0011, 0x09, 0b1000_0110, 0x00];
+        cpu.load_and_run(program);
+        assert_eq!(cpu.register_a, 0b1011_0111);
+        assert!(cpu.check_flag(FLAG_NEGATIVE));
+    }
+
+    #[test]
+    fn ror_works_with_flags() {
+        let mut cpu = CPU::new();
+        let program = vec![0x6E, 0x34, 0x12, 0x00];
+        cpu.load_and_reset(program);
+        cpu.mem_write(0x1234, 0b1000_0011);
+        cpu.set_flag(FLAG_CARRY);
+        cpu.run();
+
+        assert_eq!(cpu.mem_read(0x1234), 0b1100_0001);
+        assert!(cpu.check_flag(FLAG_CARRY));
+    }
+
+    #[test]
+    fn ror_a_works_with_flags() {
+        let mut cpu = CPU::new();
+        let program = vec![0xA9, 0b1000_0011, 0x6A, 0x00];
+        cpu.load_and_reset(program);
+        cpu.set_flag(FLAG_CARRY);
+        cpu.run();
+        assert!(cpu.check_flag(FLAG_CARRY));
+        assert_eq!(cpu.register_a, 0b1100_0001);
+    }
+
+    #[test]
+    fn rol_works_with_flags() {
+        let mut cpu = CPU::new();
+        let program = vec![0x2E, 0x34, 0x12, 0x00];
+        cpu.load_and_reset(program);
+        cpu.mem_write(0x1234, 0b1000_0010);
+        cpu.set_flag(FLAG_CARRY);
+        cpu.run();
+
+        assert!(cpu.check_flag(FLAG_CARRY));
+        assert_eq!(cpu.mem_read(0x1234), 0b0000_0101);
+    }
+
+    #[test]
+    fn rol_a_works_with_flags() {
+        let mut cpu = CPU::new();
+        let program = vec![0xA9, 0b1000_0010, 0x2A, 0x00];
+        cpu.load_and_reset(program);
+        cpu.set_flag(FLAG_CARRY);
+        cpu.run();
+
+        assert!(cpu.check_flag(FLAG_CARRY));
+        assert_eq!(cpu.register_a, 0b0000_0101);
+    }
+
+    #[test]
+    fn php_works() {
+        let mut cpu = CPU::new();
+        let status = FLAG_CARRY | FLAG_NEGATIVE | FLAG_OVERFLOW;
+        let program = vec![0x08, 0x00];
+        cpu.load_and_reset(program);
+        cpu.set_flag(status);
+        cpu.run();
+
+        assert_eq!(
+            cpu.stack_pop(),
+            status | FLAG_UNUSED | FLAG_BREAK | FLAG_INTERRUPT_DISABLE
+        );
+    }
+
+#[test]
+fn plp_works() {
+    let mut cpu = CPU::new();
+    let program = vec![0x08, 0xA9, 0x00, 0x28, 0x00];
+    let status = FLAG_CARRY | FLAG_NEGATIVE | FLAG_OVERFLOW;
+    cpu.load_and_reset(program);
+    cpu.set_flag(status);
+    cpu.run();
+
+    assert_eq!(
+        cpu.status,
+        status | FLAG_UNUSED | FLAG_INTERRUPT_DISABLE
+    );
+}
 }
